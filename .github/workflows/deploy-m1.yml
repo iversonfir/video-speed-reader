@@ -81,11 +81,23 @@ jobs:
           echo "Timed out waiting for Vercel production."
           exit 1
 
+      - name: Report OIDC identity claims
+        shell: bash
+        run: |
+          token="$(curl --fail --silent \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r '.value')"
+          payload="$(cut -d. -f2 <<< "$token" | tr '_-' '/+')"
+          padding=$(( (4 - ${#payload} % 4) % 4 ))
+          payload+="$(printf '=%.0s' $(seq 1 "$padding"))"
+          base64 --decode <<< "$payload" | jq '{sub, aud, ref, repository, job_workflow_ref}'
+
       - name: Configure AWS credentials through GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::874518807041:role/video-speed-reader-github-deploy
           aws-region: ap-southeast-1
+          retry-max-attempts: 2
 
       - name: Deploy worker through SSM
         shell: bash
