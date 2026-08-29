@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_migrations:
+        description: Apply pending Supabase migrations even when this commit has no migration changes
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-m1-production
@@ -48,7 +54,7 @@ jobs:
           fi
 
       - name: Apply Supabase migrations
-        if: steps.migrations.outputs.changed == 'true'
+        if: steps.migrations.outputs.changed == 'true' || inputs.force_migrations == true
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
