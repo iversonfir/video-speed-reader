@@ -8,7 +8,7 @@ export type JobListItem = {
   id: string;
   created_at: string;
   video_source_url: string;
-  status: "pending" | "downloading" | "transcribe" | "done";
+  status: "pending" | "downloading" | "transcribe" | "done" | "failed";
 };
 
 export function isSupportedMediaUrl(value: string) {

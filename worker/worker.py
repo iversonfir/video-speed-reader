@@ -210,7 +210,7 @@ def transcribe_chunk(
             "mode": mode,
         }
     }
-    if topic:
+    if topic and transcript_format != "timestamps":
         config["transcription_config"]["custom_vocabulary"] = [topic]
 
     for attempt in range(4):
@@ -266,31 +266,41 @@ def main() -> None:
         raise RuntimeError(f"Job {job_id} has no current session")
 
     work_dir = prepare_work_dir(job_id)
-    update_job(db, job_id, status="downloading")
-    print(f"[{job_id}] downloading {job['video_source_url']}", flush=True)
-    media = download_media(job["video_source_url"], work_dir)
-    audio = extract_audio(media, work_dir)
+    try:
+        update_job(db, job_id, status="downloading")
+        print(f"[{job_id}] downloading {job['video_source_url']}", flush=True)
+        media = download_media(job["video_source_url"], work_dir)
+        audio = extract_audio(media, work_dir)
 
-    update_job(db, job_id, status="transcribe")
-    chunks = split_audio(audio, work_dir)
-    print(f"[{job_id}] transcribing {len(chunks)} chunk(s)", flush=True)
-    gemini = genai.Client(api_key=get_secret("gemini-api-key"))
-    transcript_format = job.get("transcript_format", "sentences")
-    transcript = "\n".join(
-        transcribe_chunk(
-            gemini,
-            chunk,
-            job.get("language", "zh"),
-            job.get("topic"),
-            transcript_format,
-            index * CHUNK_SECONDS,
+        update_job(db, job_id, status="transcribe")
+        chunks = split_audio(audio, work_dir)
+        print(f"[{job_id}] transcribing {len(chunks)} chunk(s)", flush=True)
+        gemini = genai.Client(api_key=get_secret("gemini-api-key"))
+        transcript_format = job.get("transcript_format", "sentences")
+        transcript = "\n".join(
+            transcribe_chunk(
+                gemini,
+                chunk,
+                job.get("language", "zh"),
+                job.get("topic"),
+                transcript_format,
+                index * CHUNK_SECONDS,
+            )
+            for index, chunk in enumerate(chunks)
         )
-        for index, chunk in enumerate(chunks)
-    )
 
-    update_session(db, session_id, subtitle_txt_content=transcript)
-    update_job(db, job_id, status="done")
-    print(f"[{job_id}] done — {len(transcript)} chars; files kept in {work_dir}", flush=True)
+        update_session(db, session_id, subtitle_txt_content=transcript)
+        update_job(db, job_id, status="done")
+        print(
+            f"[{job_id}] done — {len(transcript)} chars; files kept in {work_dir}",
+            flush=True,
+        )
+    except Exception:
+        try:
+            update_job(db, job_id, status="failed")
+        except Exception as status_error:
+            print(f"[{job_id}] failed to persist error status: {status_error}", flush=True)
+        raise
 
 
 if __name__ == "__main__":

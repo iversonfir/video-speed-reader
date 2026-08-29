@@ -5,6 +5,7 @@ const statusLabel: Record<JobListItem["status"], string> = {
   downloading: "Downloading",
   transcribe: "Transcribing",
   done: "Done",
+  failed: "Failed",
 };
 
 const statusClass: Record<JobListItem["status"], string> = {
@@ -12,6 +13,7 @@ const statusClass: Record<JobListItem["status"], string> = {
   downloading: "bg-white/5 text-muted-foreground",
   transcribe: "bg-blue-500/15 text-blue-300",
   done: "bg-emerald-400/15 text-emerald-300",
+  failed: "bg-red-500/15 text-red-300",
 };
 
 export function JobsTable({ jobs }: { jobs: JobListItem[] }) {
