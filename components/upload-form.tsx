@@ -10,10 +10,11 @@ export function UploadForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setSubmitting(true);
     setError(null);
 
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const response = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -31,7 +32,7 @@ export function UploadForm() {
       return;
     }
 
-    event.currentTarget.reset();
+    formElement.reset();
     setSubmitting(false);
     router.refresh();
   }
