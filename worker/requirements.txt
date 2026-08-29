@@ -1,0 +1,4 @@
+boto3==1.43.83
+google-genai==2.20.0
+supabase==2.31.0
+yt-dlp==2026.8.19

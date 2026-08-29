@@ -1,0 +1,19 @@
+[Unit]
+Description=Video Speed Reader M1 Gemini Distributor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/worker
+Environment=AWS_DEFAULT_REGION=ap-southeast-1
+Environment=PATH=/home/ubuntu/app/worker/venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/app/worker/venv/bin/python /home/ubuntu/app/worker/distributor.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/m1-distributor.log
+StandardError=append:/var/log/m1-distributor.log
+
+[Install]
+WantedBy=multi-user.target
