@@ -1,6 +1,9 @@
 export const JOB_LANGUAGES = ["zh", "en"] as const;
 export type JobLanguage = (typeof JOB_LANGUAGES)[number];
 
+export const TRANSCRIPT_FORMATS = ["sentences", "timestamps"] as const;
+export type TranscriptFormat = (typeof TRANSCRIPT_FORMATS)[number];
+
 export type JobListItem = {
   id: string;
   created_at: string;

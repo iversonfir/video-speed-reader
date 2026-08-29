@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -133,12 +134,80 @@ def status_code(error: Exception) -> int | None:
     return None
 
 
-def transcribe_chunk(client: genai.Client, chunk: Path, language: str, topic: str | None) -> str:
+def extract_word_annotations(interaction: Any) -> list[Any]:
+    words = []
+    for step in getattr(interaction, "steps", []) or []:
+        for content in getattr(step, "content", []) or []:
+            for annotation in getattr(content, "annotations", []) or []:
+                if getattr(annotation, "type", None) == "word_info":
+                    words.append(annotation)
+    return words
+
+
+def sentence_lines(text: str) -> list[str]:
+    normalized = re.sub(r"\s+", " ", text).strip()
+    if not normalized:
+        return []
+    sentences = [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?。！？])\s+", normalized)
+        if sentence.strip()
+    ]
+    if len(sentences) > 1:
+        return sentences
+    words = normalized.split()
+    return [" ".join(words[index : index + 24]) for index in range(0, len(words), 24)]
+
+
+def offset_seconds(value: Any) -> float:
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)s", str(value or ""))
+    return float(match.group(1)) if match else 0.0
+
+
+def timestamp_label(seconds: float) -> str:
+    total_seconds = max(0, round(seconds))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def format_transcript(
+    text: str,
+    annotations: list[Any],
+    transcript_format: str,
+    chunk_offset: float,
+) -> str:
+    sentences = sentence_lines(text)
+    if transcript_format != "timestamps":
+        return "\n".join(sentences)
+
+    lines = []
+    annotation_index = 0
+    for sentence in sentences:
+        sentence_word_count = max(1, len(sentence.split()))
+        annotation = annotations[min(annotation_index, len(annotations) - 1)] if annotations else None
+        start = chunk_offset + offset_seconds(getattr(annotation, "start_offset", None))
+        lines.append(f"[{timestamp_label(start)}] {sentence}")
+        annotation_index += sentence_word_count
+    return "\n".join(lines)
+
+
+def transcribe_chunk(
+    client: genai.Client,
+    chunk: Path,
+    language: str,
+    topic: str | None,
+    transcript_format: str,
+    chunk_offset: float,
+) -> str:
     language_code = LANGUAGE_CODES.get(language)
+    mode: Any = "smart"
+    if transcript_format == "timestamps":
+        mode = {"type": "verbatim", "timestamp_granularities": ["word"]}
     config: dict[str, Any] = {
         "transcription_config": {
             "language_codes": [language_code] if language_code else [],
-            "mode": "verbatim",
+            "mode": mode,
         }
     }
     if topic:
@@ -162,7 +231,12 @@ def transcribe_chunk(client: genai.Client, chunk: Path, language: str, topic: st
             text = interaction.output_text
             if not text:
                 raise RuntimeError("Gemini returned an empty transcript")
-            return text.strip()
+            return format_transcript(
+                text,
+                extract_word_annotations(interaction),
+                transcript_format,
+                chunk_offset,
+            )
         except Exception as error:
             code = status_code(error)
             retryable = code == 429 or (code is not None and code >= 500)
@@ -201,9 +275,17 @@ def main() -> None:
     chunks = split_audio(audio, work_dir)
     print(f"[{job_id}] transcribing {len(chunks)} chunk(s)", flush=True)
     gemini = genai.Client(api_key=get_secret("gemini-api-key"))
-    transcript = "\n\n".join(
-        transcribe_chunk(gemini, chunk, job.get("language", "zh"), job.get("topic"))
-        for chunk in chunks
+    transcript_format = job.get("transcript_format", "sentences")
+    transcript = "\n".join(
+        transcribe_chunk(
+            gemini,
+            chunk,
+            job.get("language", "zh"),
+            job.get("topic"),
+            transcript_format,
+            index * CHUNK_SECONDS,
+        )
+        for index, chunk in enumerate(chunks)
     )
 
     update_session(db, session_id, subtitle_txt_content=transcript)

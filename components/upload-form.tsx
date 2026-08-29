@@ -22,6 +22,7 @@ export function UploadForm() {
         video_source_url: form.get("video_source_url"),
         topic: form.get("topic"),
         language: form.get("language"),
+        transcript_format: form.get("transcript_format"),
       }),
     });
 
@@ -56,7 +57,7 @@ export function UploadForm() {
         </p>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-3">
         <div>
           <label htmlFor="topic" className="mb-2 block text-sm font-medium">
             Topic
@@ -82,6 +83,20 @@ export function UploadForm() {
           >
             <option value="zh">繁體中文</option>
             <option value="en">English</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="transcript_format" className="mb-2 block text-sm font-medium">
+            輸出格式
+          </label>
+          <select
+            id="transcript_format"
+            name="transcript_format"
+            defaultValue="sentences"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-ring"
+          >
+            <option value="sentences">逐句純文字</option>
+            <option value="timestamps">含時間戳逐句文字</option>
           </select>
         </div>
       </div>

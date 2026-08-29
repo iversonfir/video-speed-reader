@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { JOB_LANGUAGES, isSupportedMediaUrl } from "@/lib/jobs";
+import { JOB_LANGUAGES, TRANSCRIPT_FORMATS, isSupportedMediaUrl } from "@/lib/jobs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -7,6 +7,7 @@ type CreateJobBody = {
   video_source_url?: unknown;
   topic?: unknown;
   language?: unknown;
+  transcript_format?: unknown;
 };
 
 export async function POST(request: Request) {
@@ -24,6 +25,11 @@ export async function POST(request: Request) {
     typeof body.language === "string" && JOB_LANGUAGES.includes(body.language as "zh" | "en")
       ? body.language
       : "zh";
+  const transcriptFormat =
+    typeof body.transcript_format === "string" &&
+    TRANSCRIPT_FORMATS.includes(body.transcript_format as "sentences" | "timestamps")
+      ? body.transcript_format
+      : "sentences";
 
   if (!isSupportedMediaUrl(videoSourceUrl)) {
     return NextResponse.json(
@@ -41,6 +47,7 @@ export async function POST(request: Request) {
         video_source_url: videoSourceUrl,
         topic: topic || null,
         language,
+        transcript_format: transcriptFormat,
         status: "pending",
       })
       .select("id")
